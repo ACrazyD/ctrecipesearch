@@ -1,0 +1,346 @@
+
+To fulfill your request, I will adjust the page so that when the user uploads a log file, it does NOT automatically parse immediately. Instead, the user will have to press a "Parse Log" button to parse the uploaded file and show the results.
+
+Once parsed, the results should be shown immediately without needing a search. Also, the parsed data should stay on the page until the user refreshes or uploads another file.
+
+So the changes are:
+- Add a "Parse Log" button, initially disabled.
+- When file is uploaded, enable the button.
+- Parsing occurs only when button is clicked.
+- Once parsed, results are shown immediately.
+- Search box remains functional to filter results.
+- Data persists until page refresh or new file upload.
+
+I'll add a "Parse Log" button below the file input and above the search input.
+
+Now I will proceed with the full updated `index.html` file implementing these changes.
+
+
+`index.html`
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Log Parser - Mod Recipes</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap');
+  body {
+    font-family: 'Inter', sans-serif;
+    background: #121212;
+    color: #e0e0e0;
+    margin: 0;
+    padding: 0;
+  }
+  header {
+    background: #1f1f1f;
+    padding: 1rem 2rem;
+    text-align: center;
+    font-size: 1.8rem;
+    font-weight: 600;
+    letter-spacing: 1.2px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.7);
+  }
+  main {
+    max-width: 900px;
+    margin: 2rem auto;
+    padding: 0 1rem;
+  }
+  .upload-section {
+    text-align: center;
+    margin-bottom: 2rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.75rem;
+  }
+  input[type="file"] {
+    border: 2px dashed #4caf50;
+    border-radius: 8px;
+    padding: 1rem;
+    width: 100%;
+    max-width: 400px;
+    cursor: pointer;
+    background: #222;
+    color: #aad68f;
+    font-weight: 600;
+    transition: background 0.3s ease;
+  }
+  input[type="file"]:hover {
+    background: #2a2a2a;
+  }
+  button {
+    max-width: 400px;
+    padding: 0.6rem 1.2rem;
+    background: #4caf50;
+    border: none;
+    border-radius: 6px;
+    font-weight: 600;
+    color: #121212;
+    cursor: pointer;
+    font-size: 1rem;
+    transition: background 0.3s ease;
+  }
+  button:disabled {
+    background: #7dbd7d;
+    cursor: not-allowed;
+  }
+  button:hover:not(:disabled) {
+    background: #449e44;
+  }
+  input[type="text"] {
+    width: 100%;
+    max-width: 400px;
+    padding: 0.6rem 1rem;
+    border-radius: 6px;
+    border: none;
+    margin-bottom: 1rem;
+    font-size: 1rem;
+    outline: none;
+    color: #121212;
+  }
+  .results-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 1rem;
+    box-shadow: 0 0 15px rgba(76,175,80,0.3);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .results-table thead {
+    background: #4caf50;
+    color: #121212;
+  }
+  .results-table th, .results-table td {
+    padding: 0.8rem 1rem;
+    text-align: left;
+  }
+  .results-table tbody tr {
+    background: #1c1c1c;
+    border-bottom: 1px solid #2c2c2c;
+    transition: background 0.3s ease;
+  }
+  .results-table tbody tr:nth-child(even) {
+    background: #232323;
+  }
+  .results-table tbody tr:hover {
+    background: #3a753a;
+    color: #f1f1f1;
+  }
+  .no-data {
+    text-align: center;
+    margin-top: 1.5rem;
+    font-size: 1.2rem;
+    color: #999;
+  }
+  footer {
+    text-align: center;
+    font-size: 0.9rem;
+    padding: 1rem;
+    color: #555;
+    margin-top: 3rem;
+  }
+  @media (max-width: 600px) {
+    main {
+      margin: 1rem;
+    }
+    .results-table th, .results-table td {
+      padding: 0.5rem 0.7rem;
+      font-size: 0.9rem;
+    }
+  }
+</style>
+</head>
+<body>
+<header>
+  Log Parser - Mod Recipes
+</header>
+<main>
+  <section class="upload-section">
+    <input type="file" id="fileInput" accept=".txt,.log" />
+    <button id="parseBtn" disabled>Parse Log</button>
+    <input type="text" id="searchInput" placeholder="Search mod name, recipe type, recipe ID or extras..." disabled />
+  </section>
+  <section class="results-section">
+    <table class="results-table" id="resultsTable" aria-label="Parsed log results">
+      <thead>
+        <tr>
+          <th>Mod Name</th>
+          <th>Recipe Type</th>
+          <th>Recipe ID</th>
+          <th>Extras</th>
+        </tr>
+      </thead>
+      <tbody id="resultsBody">
+        <tr><td colspan="4" class="no-data">Upload a log file to start parsing.</td></tr>
+      </tbody>
+    </table>
+  </section>
+</main>
+<footer>
+  &copy; 2024 Log Parser
+</footer>
+
+<script>
+  const fileInput = document.getElementById('fileInput');
+  const parseBtn = document.getElementById('parseBtn');
+  const searchInput = document.getElementById('searchInput');
+  const resultsBody = document.getElementById('resultsBody');
+
+  let fileContent = "";
+  let parsedData = [];
+
+  // Function to parse a single line
+  function parseLine(line) {
+    // Pattern to find: [timestamp][INFO][CraftTweaker-Commands]: <string>
+    // Extract after ": "
+    const pattern = /\[.*?\]\[INFO\]\[CraftTweaker-Commands\]: (.+)$/;
+    const match = line.match(pattern);
+    if (!match) return null;
+
+    const dataString = match[1].trim();
+    // Data string expected format: modname:recipetype/recipeid optionally plus extras
+    // Split on space for extras if any
+    const parts = dataString.split(/\s+/);
+    const mainPart = parts[0];
+
+    const extras = parts.length > 1 ? parts.slice(1).join(" ") : "";
+
+    // Parse main part modname:recipetype/recipeid
+    const modSplitIndex = mainPart.indexOf(':');
+    const recipeSplitIndex = mainPart.indexOf('/');
+
+    if (modSplitIndex === -1 || recipeSplitIndex === -1 || recipeSplitIndex < modSplitIndex) {
+      // Not matching the expected pattern
+      return null;
+    }
+
+    const modName = mainPart.substring(0, modSplitIndex);
+    const recipeType = mainPart.substring(modSplitIndex + 1, recipeSplitIndex);
+    const recipeId = mainPart.substring(recipeSplitIndex + 1);
+
+    return {
+      modName,
+      recipeType,
+      recipeId,
+      extras
+    };
+  }
+
+  // Function to render parsed data table rows filtered by search string
+  function renderTable(filter = "") {
+    const filterLower = filter.toLowerCase();
+    // Clear current rows
+    resultsBody.innerHTML = "";
+
+    const filtered = parsedData.filter(row => {
+      return (
+        row.modName.toLowerCase().includes(filterLower) ||
+        row.recipeType.toLowerCase().includes(filterLower) ||
+        row.recipeId.toLowerCase().includes(filterLower) ||
+        row.extras.toLowerCase().includes(filterLower)
+      );
+    });
+
+    if (filtered.length === 0) {
+      const tr = document.createElement('tr');
+      const td = document.createElement('td');
+      td.setAttribute('colspan', '4');
+      td.className = 'no-data';
+      td.textContent = filter ? 'No matching results found.' : 'No data to display.';
+      tr.appendChild(td);
+      resultsBody.appendChild(tr);
+      return;
+    }
+
+    filtered.forEach(({modName, recipeType, recipeId, extras}) => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${escapeHtml(modName)}</td>
+        <td>${escapeHtml(recipeType)}</td>
+        <td>${escapeHtml(recipeId)}</td>
+        <td>${escapeHtml(extras)}</td>
+      `;
+      resultsBody.appendChild(tr);
+    });
+  }
+
+  // Basic HTML escaping to prevent injection
+  function escapeHtml(text) {
+    return text
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+  }
+
+  // Handle file upload
+  fileInput.addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) {
+      parseBtn.disabled = true;
+      searchInput.disabled = true;
+      resultsBody.innerHTML = '<tr><td colspan="4" class="no-data">Upload a log file to start parsing.</td></tr>';
+      fileContent = "";
+      parsedData = [];
+      return;
+    }
+    parseBtn.disabled = false;
+    searchInput.disabled = true;
+    resultsBody.innerHTML = '<tr><td colspan="4" class="no-data">File uploaded. Click "Parse Log" to start parsing.</td></tr>';
+
+    const reader = new FileReader();
+    reader.onload = function(event) {
+      fileContent = event.target.result;
+      // Do NOT parse automatically here
+    };
+    reader.onerror = function() {
+      resultsBody.innerHTML = '<tr><td colspan="4" class="no-data">Error reading file.</td></tr>';
+      parseBtn.disabled = true;
+      searchInput.disabled = true;
+      fileContent = "";
+      parsedData = [];
+    };
+    reader.readAsText(file);
+  });
+
+  // Parse button click handler
+  parseBtn.addEventListener('click', () => {
+    if (!fileContent) return;
+    parsedData = [];
+
+    resultsBody.innerHTML = '<tr><td colspan="4" class="no-data">Parsing file...</td></tr>';
+    searchInput.value = "";
+    searchInput.disabled = true;
+    parseBtn.disabled = true;
+
+    const lines = fileContent.split(/\r?\n/);
+    lines.forEach(line => {
+      const parsed = parseLine(line);
+      if (parsed) {
+        parsedData.push(parsed);
+      }
+    });
+
+    if (parsedData.length === 0) {
+      resultsBody.innerHTML = '<tr><td colspan="4" class="no-data">No valid entries found in file.</td></tr>';
+      searchInput.disabled = true;
+    } else {
+      searchInput.disabled = false;
+      renderTable();
+    }
+    parseBtn.disabled = false;
+  });
+
+  // Listen for search input
+  searchInput.addEventListener('input', (e) => {
+    const query = e.target.value;
+    renderTable(query);
+  });
+</script>
+</body>
+</html>
+
+```
